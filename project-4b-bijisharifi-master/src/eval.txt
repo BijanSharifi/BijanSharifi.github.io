@@ -1,0 +1,143 @@
+open MicroCamlTypes
+open Utils
+
+exception TypeError of string
+exception DeclareError of string
+exception DivByZeroError 
+
+(* Provided functions
+  Helpful for creating an environment. You can do this with references 
+  (not taught) or without. 
+  You do not have to use these and you can modify them if you want. 
+  If you do not use references, you will need the following data type:
+*)
+type values = Int of int|Bool of bool|String of string
+
+(* Adds mapping [x:v] to environment [env] *)
+let ref_extend env x v = (x, ref v)::env
+
+let extend env x v = (x,v)::env
+
+(* Returns [v] if [x:v] is a mapping in [env]; uses the
+   most recent if multiple mappings for [x] are present *)
+let rec ref_lookup env x =
+  match env with
+  | [] -> raise (DeclareError ("Unbound variable " ^ x))
+  | (var, value)::t -> if x = var then !value else ref_lookup t x
+
+let rec lookup env x = 
+  match env with
+  [] -> raise (DeclareError ("Unbound variable " ^ x))
+  | (var, value)::t -> if x = var then value else lookup t x
+
+(* Creates a placeholder mapping for [x] in [env]; needed
+   for handling recursive definitions *)
+let ref_extend_tmp env x = (x, ref (Int 0))::env
+
+(* Updates the (most recent) mapping in [env] for [x] to [v] *)
+let rec ref_update env x v =
+  match env with
+  | [] -> raise (DeclareError ("Unbound variable " ^ x))
+  | (var, value)::t -> if x = var then (value := v) else ref_update t x v
+        
+(* Removes the most recent variable,value binding from the environment *)
+let rec remove env x = match env with
+  [] -> []
+  | (var,value)::t -> if x = var then t else (var,value)::(remove t x)
+
+(* Part 1: Evaluating expressions *)
+
+(* Evaluates MicroCaml expression [e] in environment [env],
+   returning a value, or throwing an exception on error *)
+    let rec eval_expr env e = match e with 
+   |Value(value)-> value
+   |ID(var)-> let x = ref_lookup env var in x
+   |Not(expr)-> let x = eval_expr env expr in
+                (match x with 
+                |Bool(true)->Bool(false)
+                |Bool(false)->Bool(true)
+                |_->raise (TypeError"Excpected Type bool"))
+     |Binop(op, expr1, expr2)-> let x = eval_expr env expr1 in 
+                                let y = eval_expr env expr2 in 
+                                (match op with 
+                                |Add-> (match x, y with 
+                                       |Int(x2), Int(y2)-> Int(x2+y2)
+                                       |_-> raise (TypeError "Expected type int"))
+                                |Sub-> (match x, y with 
+                                       |Int(x2), Int(y2)-> Int(x2-y2)
+                                       |_-> raise (TypeError "Expected type int"))
+                                |Mult-> (match x, y with 
+                                       |Int(x2), Int(y2)-> Int(x2*y2)
+                                       |_-> raise (TypeError "Expected type int"))
+                                |Div-> (match x, y with 
+                                       |Int(x2), Int(y2)-> if y2 = 0 then raise (DivByZeroError) else 
+                                                           Int(x2/y2)
+                                       |_-> raise (TypeError "Expected type int"))
+                                |Greater-> (match x, y with
+                                           |Int(x2), Int(y2)-> Bool(x2>y2)
+                                           |_-> raise (TypeError "Expected type int"))
+                                |GreaterEqual-> (match x, y with 
+                                               |Int(x2), Int(y2)-> Bool(x2>=y2)
+                                               |_-> raise (TypeError "Expected type int"))
+                                |Less-> (match x, y with 
+                                       |Int(x2), Int(y2)-> Bool(x2<y2)
+                                       |_-> raise (TypeError "Expected type int"))
+                                |LessEqual-> (match x, y with 
+                                           |Int(x2), Int(y2)-> Bool(x2<=y2)
+                                           |_->raise (TypeError "Expected type int"))
+                                |Concat-> (match x, y with 
+                                         |String(s1), String(s2)-> String(s1 ^ s2)
+                                         |_-> raise (TypeError "Expected type string"))
+                                |Equal->(match x, y with 
+                                         |Int(x2), Int(y2)-> Bool(x2=y2)
+                                         |Bool(b1), Bool(b2)->Bool(b1=b2)
+                                         |String(s1), String(s2)->Bool(s1=s2)
+                                         |_-> raise (TypeError "Cannot compare types"))
+                                |NotEqual->(match x, y with 
+                                           |Int(x2), Int(y2)-> Bool(x2!=y2)
+                                           |Bool(b1), Bool(b2)-> Bool(b1!=b2)
+                                           |String(s1), String(s2)-> Bool(s1!=s2)
+                                           |_-> raise (TypeError "Cannot compare types"))
+                                |Or-> (match x, y with 
+                                     |Bool(b1), Bool(b2)-> Bool(b1 || b2)
+                                     |_-> raise (TypeError "Expected type bool"))
+                                |And->(match x, y with 
+                                     |Bool(b1), Bool(b2)-> Bool(b1 && b2)
+                                     |_-> raise (TypeError "Expected type bool")))
+     |If(expr1, expr2, expr3)-> let b = eval_expr env expr1 in 
+                                (match b with 
+                                |Bool(true)-> eval_expr env expr2
+                                |Bool(false)-> eval_expr env expr3
+                                |_-> raise (TypeError "Expected type bool"))
+     |Let(var, rec_opt, init, body)-> (match rec_opt with 
+                                    |true->  let placeholder = ref_extend_tmp env var in 
+                                             let v = eval_expr placeholder init in
+                                             let _ = ref_update placeholder var v in
+                                             let e = eval_expr placeholder body in 
+                                             e
+                                    |false-> let v = eval_expr env init 
+                                             in let env2 = ref_extend env var v in 
+                                             let e = eval_expr env2 body in 
+                                             e
+                                   )
+    |Fun(p, body)-> Closure(env, p, body)
+    |FunctionCall(e1, e2)-> (match eval_expr env e1 with 
+                           |Closure(a, x, e)-> let v = eval_expr env e2 in 
+                                               let a2 = ref_extend a x v in 
+                                               eval_expr a2 e
+                           |_-> raise (TypeError "Expected a closure"))
+
+(* Part 2: Evaluating mutop directive *)
+
+(* Evaluates MicroCaml mutop directive [m] in environment [env],
+   returning a possibly updated environment paired with
+   a value option; throws an exception on error *)
+let eval_mutop env m = 
+  match m with 
+  |NoOp-> (env, None)
+  |Expr(expr)-> let expr2 = eval_expr env expr in 
+                (env, Some expr2)
+  |Def(var, expr)-> let placeholder = ref_extend_tmp env var in 
+                    let v = eval_expr placeholder expr in 
+                    let _ = ref_update placeholder var v in 
+                    (placeholder, Some v)

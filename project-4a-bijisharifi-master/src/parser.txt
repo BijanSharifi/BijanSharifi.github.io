@@ -1,0 +1,257 @@
+open MicroCamlTypes
+open Utils
+open TokenTypes
+
+(* Provided functions - DO NOT MODIFY *)
+
+(* Matches the next token in the list, throwing an error if it doesn't match the given token *)
+let match_token (toks: token list) (tok: token) =
+  match toks with
+  | [] -> raise (InvalidInputException(string_of_token tok))
+  | h::t when h = tok -> t
+  | h::_ -> raise (InvalidInputException(
+      Printf.sprintf "Expected %s from input %s, got %s"
+        (string_of_token tok)
+        (string_of_list string_of_token toks)
+        (string_of_token h)))
+
+(* Matches a sequence of tokens given as the second list in the order in which they appear, throwing an error if they don't match *)
+let match_many (toks: token list) (to_match: token list) =
+  List.fold_left match_token toks to_match
+
+(* Return the next token in the token list as an option *)
+let lookahead (toks: token list) = 
+  match toks with
+  | [] -> None
+  | h::t -> Some h
+
+(* Return the token at the nth index in the token list as an option*)
+let rec lookahead_many (toks: token list) (n: int) = 
+  match toks, n with
+  | h::_, 0 -> Some h
+  | _::t, n when n > 0 -> lookahead_many t (n-1)
+  | _ -> None
+
+(* Part 2: Parsing expressions *)
+let rec parse_expr toks = 
+match lookahead toks with 
+|Some Tok_Let-> parse_let toks
+|Some Tok_If-> parse_if toks
+|Some Tok_Fun-> parse_function toks
+|_ -> parse_or toks
+
+
+and parse_let toks = 
+  let l = match_token toks Tok_Let in 
+  match lookahead l with 
+  | Some Tok_Rec ->
+    let l2 = match_token l Tok_Rec in 
+    (match lookahead l2 with 
+    | Some Tok_ID(s) ->
+      let l3 = match_token l2 (Tok_ID(s)) in 
+      let l4 = match_token l3 Tok_Equal in 
+      let (l5, expr) = parse_expr l4 in 
+      let l6 = match_token l5 Tok_In in 
+      let (l7, expr2) = parse_expr l6 in 
+      (l7, Let(s, true, expr, expr2))
+    | _ -> raise (InvalidInputException "Parse Error in parse_let"))
+  | Some Tok_ID(s) ->
+    let l2 = match_token l (Tok_ID(s)) in 
+    let l3 = match_token l2 Tok_Equal in 
+    let (l4, expr) = parse_expr l3 in 
+    let l5 = match_token l4 Tok_In in 
+    let (l6, expr2) = parse_expr l5 in 
+    (l6, Let(s, false, expr, expr2))
+  |_-> raise (InvalidInputException("Parse Error in parse_let end no match"))
+  
+          
+
+
+
+
+
+and parse_function toks = 
+let l = match_token toks Tok_Fun in 
+match lookahead l with 
+|Some Tok_ID(s)-> let l2 = match_token l (Tok_ID(s)) in 
+            let l3 = match_token l2 Tok_Arrow in 
+            let (l4, expr) = parse_expr l3 in 
+            (l4, Fun(s, expr))
+            
+            
+|_-> raise (InvalidInputException"Parse Error")
+
+
+
+
+
+
+
+and parse_if toks = 
+let l = match_token toks Tok_If in 
+let (l2, expr) = parse_expr l in 
+let l3 = match_token l2 Tok_Then in 
+let (l4, expr2) = parse_expr l3 in 
+let l5 = match_token l4 Tok_Else in 
+let (l6, expr3) = parse_expr l5 in 
+(l6, If(expr, expr2, expr3))
+
+
+
+and parse_or toks = 
+match lookahead_many toks 1 with 
+|Some Tok_Or-> let (l, expr) = parse_and toks in 
+          let l2 = match_token l Tok_Or in 
+          let (l3, expr2) = parse_or l2 in 
+          (l3, Binop(Or, expr, expr2))
+|_-> let (l, expr) = parse_and toks in 
+          (l, expr)
+
+and parse_and toks = 
+match lookahead_many toks 1 with 
+|Some Tok_And-> let (l, expr) = parse_equality toks in 
+           let l2 = match_token l Tok_And in 
+           let (l3, expr2) = parse_and l2 in 
+           (l3, Binop(And, expr, expr2))
+|_-> let (l, expr) = parse_equality toks in 
+          (l, expr)
+
+and parse_equality toks = 
+let (l, expr) = parse_relational toks in 
+match lookahead l with 
+|Some Tok_Equal-> let l2 = match_token l Tok_Equal in 
+             let (l3, expr2) = parse_equality l2 in 
+             (l3, Binop(Equal, expr, expr2))
+|Some Tok_NotEqual-> let l2 = match_token l Tok_NotEqual in 
+                let (l3, expr2) = parse_equality l2 in 
+                (l3, Binop(NotEqual, expr, expr2))
+|_-> (l, expr)
+
+
+and parse_relational toks = 
+let (l, expr) = parse_additive toks in 
+match lookahead l with 
+|Some Tok_Less-> let l2 = match_token l Tok_Less in 
+            let (l3, expr2) = parse_relational l2 in 
+            (l3, Binop(Less, expr, expr2))
+|Some Tok_Greater-> let l2 = match_token l Tok_Greater in 
+               let (l3, expr2) = parse_relational l2 in 
+               (l3, Binop(Greater, expr, expr2))
+|Some Tok_LessEqual-> let l2 = match_token l Tok_LessEqual in 
+                 let (l3, expr2) = parse_relational l2 in 
+                 (l3, Binop(LessEqual, expr, expr2))
+|Some Tok_GreaterEqual-> let l2 = match_token l Tok_GreaterEqual in 
+                    let (l3, expr2) = parse_relational l2 in 
+                    (l3, Binop(GreaterEqual, expr, expr2))
+|_-> (l, expr)
+
+
+and parse_additive toks = 
+let (l, expr) = parse_multiplicative toks in 
+match lookahead l with 
+|Some Tok_Add-> let l2 = match_token l Tok_Add in 
+            let (l3, expr2) = parse_additive l2 in 
+            (l3, Binop(Add, expr, expr2))
+|Some Tok_Sub-> let l2 = match_token l Tok_Sub in 
+             let (l3, expr2) = parse_additive l2 in
+             (l3, Binop(Sub, expr, expr2))
+|_-> (l, expr)
+
+and parse_multiplicative toks = 
+let (l, expr) = parse_concat toks in 
+match lookahead l with 
+|Some Tok_Mult-> let l2 = match_token l Tok_Mult in 
+            let (l3, expr2) = parse_multiplicative l2 in 
+            (l3, Binop(Mult, expr, expr2))
+|Some Tok_Div-> let l2 = match_token l Tok_Div in 
+           let (l3, expr2) = parse_multiplicative l2 in 
+           (l3, Binop(Div, expr, expr2))
+|_-> (l, expr)
+
+and parse_concat toks = 
+let (l, expr) = parse_unary toks in 
+match lookahead l with 
+|Some Tok_Concat-> let l2 = match_token l Tok_Concat in 
+              let (l3, expr2) = parse_concat l2 in 
+              (l3, Binop(Concat, expr, expr2))
+|_ ->(l, expr)
+
+and parse_unary toks = 
+match lookahead toks with 
+|Some Tok_Not-> let l = match_token toks Tok_Not in 
+           let (l2, expr) = parse_unary l in 
+           (l2, Not(expr))
+|_-> let (l, expr) = parse_funcall toks in 
+     (l, expr)
+
+
+
+
+and parse_funcall toks = 
+let (l, expr) = parse_primary toks in 
+match lookahead l with 
+|Some Tok_Int(i)-> let l2 = (match_token l (Tok_Int(i))) in 
+              (l2, FunctionCall(expr, Value(Int(i))))
+|Some Tok_Bool(b)-> let l2 = (match_token l (Tok_Bool(b))) in 
+              (l2, FunctionCall(expr, Value(Bool(b))))
+|Some Tok_String(s)-> let l2 = (match_token l (Tok_String(s))) in 
+                (l2, FunctionCall(expr, Value(String(s))))
+|Some Tok_ID(id)-> let l2 = (match_token l (Tok_ID(id))) in 
+              (l2, FunctionCall(expr, ID(id)))
+|Some Tok_LParen-> let l2 = (match_token l Tok_LParen) in 
+               let (l3, expr2) = parse_expr l2 in 
+               let l4 = match_token l3 Tok_RParen in 
+               (l4, FunctionCall(expr, expr2))
+|_-> (l, expr)
+
+
+
+
+
+
+
+and parse_primary toks = 
+match lookahead toks with 
+|Some Tok_Int(i)-> let l = (match_token toks (Tok_Int(i))) in 
+              (l, Value(Int(i)))
+|Some Tok_Bool(b)-> let l = (match_token toks (Tok_Bool(b))) in 
+              (l, Value(Bool(b)))
+|Some Tok_String(s)-> let l = (match_token toks (Tok_String(s))) in 
+                (l, Value(String(s)))
+|Some Tok_ID(id)-> let l = (match_token toks (Tok_ID(id))) in 
+              (l, ID(id))
+|Some Tok_LParen-> let l = (match_token toks Tok_LParen) in 
+               let (l2, expr) = parse_expr l in 
+               let l3 = match_token l2 Tok_RParen in 
+               (l3, expr)
+|_->raise (InvalidInputException "primary")
+
+
+(* Part 3: Parsing mutop *)
+
+
+let rec parse_mutop toks = 
+  match lookahead toks with 
+  |Some Tok_Def-> parse_defmutop toks 
+  |Some Tok_DoubleSemi-> let l = match_token toks Tok_DoubleSemi in 
+                    (l, NoOp)
+  |_-> parse_exprmutop toks
+
+
+
+and parse_defmutop toks = 
+let l = match_token toks Tok_Def in 
+match lookahead l with 
+|Some Tok_ID(s)-> let l2 = match_token l (Tok_ID(s)) in 
+                  let l3 = match_token l2 Tok_Equal in 
+                  let (l4, expr) = parse_expr l3 in 
+                  let l5 = match_token l4 Tok_DoubleSemi in 
+                  (l5, Def(s, expr))
+|_-> raise(InvalidInputException"error in parse_defmutop")
+
+
+and parse_exprmutop toks = 
+let (l, expr) = parse_expr toks in 
+let l2 = match_token l Tok_DoubleSemi in 
+(l2, Expr(expr))
+
