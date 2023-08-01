@@ -1,0 +1,198 @@
+
+
+#1
+def fib(n)
+  return [] if n==0
+  fibSeq=[0]
+  return fibSeq if n==1
+  fibSeq=[0,1] 
+  return fibSeq if n==2
+  (2..n-1).each do |i|
+    fibSeq<<fibSeq[i-1] + fibSeq[i-2]
+  end
+  return fibSeq
+end 
+
+
+
+#2
+def isPalindrome(n)
+  str=n.to_s
+  return str==str.reverse
+end 
+
+
+#3
+def nthmax(n, a)
+  return nil if n>a.size || a.empty?
+  b=a.sort.reverse
+  return b[n]
+end 
+
+#4
+def freq(s)
+  return "" if s.empty?
+  hash=Hash.new(0)
+  s.each_char{|i| hash[i]+=1}
+  max_num=hash.values.max
+  mchar=hash.key(max_num)
+  return mchar
+end
+
+
+
+#5
+def zipHash(arr1, arr2)
+  return nil if arr1.size!=arr2.size
+  hash=Hash.new(0)
+  counter=0
+  arr1.each_with_index do |i, j|
+    hash[i]=arr2[j]
+  end
+  return hash
+end 
+
+
+#6
+def hashToArray(hash)
+  return [] if hash.empty?
+  arr=hash.map do|key, value|
+    [key, value]
+  end 
+end 
+
+
+
+def maxProcChain(init, procs)
+  arr=[init]
+  procs.each do |i|
+    arr << i.call(init)
+    procs.each do |j|
+      next if i==j
+      arr << j.call(i.call(init))
+    end 
+  end 
+
+  arr.max
+
+end
+
+#Person
+class Person
+  def initialize(name, age)
+    @name=name
+    @age=age
+  end 
+  
+  def getAge
+    return @age
+
+  end
+  
+  def setAge(x)
+    @age=x
+    return self
+
+  end
+
+  def getName
+    @name
+  end
+  
+  def to_s
+    "Person: name = #{@name}, age = #{@age}"
+
+  end
+end
+
+
+
+#Student
+class Student < Person
+  def initialize(name, age, grade)
+    @name=name
+    @age=age
+    @grade=grade
+  end 
+
+  def getGrade
+    return @grade
+  end 
+
+  def changeGrade(x)
+    @grade=x
+    return self
+
+  end
+  def to_s
+    "Student: name = #{@name}, age = #{@age}, grade = #{@grade}"
+  end
+end
+
+
+
+#Staff
+class Staff < Person
+  def initialize(name, age, position)
+    @name=name
+    @age=age
+    @position=position
+  end 
+
+  def getPosition
+    return @position
+  end
+
+  def changePosition(newPosition)
+    @position=newPosition
+    return self
+  end 
+  def to_s
+    "Staff: name = #{@name}, age = #{@age}, position = #{@position}"
+  end 
+end 
+
+
+
+#Roster
+class Roster
+  def initialize
+    @roster=Set.new
+  end
+
+  def add(person)
+    @roster.add(person)
+    
+  end 
+
+  def size
+    @roster.size
+  end
+
+  def remove(person)
+    @roster.remove(person)
+    
+  end
+
+  def getPerson(name)
+    person=@roster.find{|person| person.getName==name }
+
+
+  end
+
+  def to_s
+    @roster.to_s
+
+
+  end
+
+  def map
+    if block_given?
+    @roster.map do |person|
+      yield(person)
+      end 
+    end 
+    
+
+  end 
+end 

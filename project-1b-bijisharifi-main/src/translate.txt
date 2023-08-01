@@ -1,0 +1,438 @@
+class Translator
+
+    def initialize(words_file, grammar_file)
+         @rules = Array.new(4)
+         @posMap = {}
+         self.updateLexicon(words_file)
+         self.updateGrammar(grammar_file)
+  
+    end
+
+    # part 1
+  
+    def updateLexicon(inputfile)
+        hashPOS = {}
+        hashTrans = {}
+        hashTransAndPOS = {}
+        File.open(inputfile, 'r') do |file|
+            while line = file.gets
+                next unless line =~ /^[a-z0-9-]+,[ ]{1}[A-Z0-9]{3}((,[ ]{1}[A-Z0-9][a-z0-9]*:[a-z0-9-]+))+$/
+
+                word = line.split(',').first
+                line.strip!
+       
+
+                pos = line.split(',')[1].strip
+                part = line.split(', ')
+                if !hashTransAndPOS[word].nil?
+                    wordNewPos = word + pos
+                    hashTransAndPOS[wordNewPos] = line
+
+                else
+                    hashTransAndPOS[word] = line
+
+                end
+
+                translations = part[2..-1].join(', ')
+                translations.gsub!("\n", '')
+
+                if hashPOS[word] == pos || hashPOS[word].nil?
+                    hashPOS[word] = pos
+                    hashTrans[word] = translations
+
+                else
+                    wordNewPos = word + pos
+                    hashPOS[wordNewPos] = pos
+                    hashTrans[wordNewPos] = translations
+
+                end
+
+            end
+           end
+
+           @rules[0] = hashPOS
+           @rules[1] = hashTrans
+           @rules[3] = hashTransAndPOS
+        
+  
+    end
+  
+    def updateGrammar(inputfile)
+        hashStruc = {}
+        file = File.open(inputfile, 'r')
+        while line = file.gets
+
+            next unless line =~ /^[a-zA-Z0-9]+(:[ ]{1}[A-Z]{3}(({\d}))?)+(,[ ]{1}[A-Z]{3}(({\d}))?)*$/
+
+            lang = line.split(':').first
+            structure = line.split(': ')[1].strip
+            structure.gsub!('/n', '')
+            hashStruc[lang] = structure
+
+        end
+
+        @rules[2] = hashStruc
+        file.close
+  
+     end
+
+    # part 2
+  
+    def generateSentence(language, struct)
+        pos = @rules[0]
+        trans = @rules[1]
+        grammer = @rules[2]
+        hashTransAndPOS = @rules[3]
+        if struct.class == String
+            if language == 'English'
+                if !grammer
+                    return nil
+                    
+                end 
+                structure = grammer[struct]
+
+                if structure
+                    arr = []
+                    words = structure.split(', ')
+                    words.each do |word|
+                        if word.include?('{')
+                            start = word.index('{')
+                            stringNumber = word[start + 1]
+                            number = stringNumber.to_i
+                            appendWord = word[0, 3]
+                            (0..number - 1).each do |_i|
+                                arr << appendWord
+                            end
+                            next
+
+                        end
+                        arr << word
+                    end
+
+                    sentence = []
+
+                    arr.each do |i|
+                        pos.each do |word, part|
+                            next unless part == i
+
+                            sentence << word
+                            break
+                        end
+                    end
+                    stringSentence=sentence.join(" ")
+                    return stringSentence
+
+                end
+
+            else
+                if !grammer
+                    return nil
+                    
+                end 
+                structure = grammer[struct]
+                if structure
+                    arr = []
+                    words = structure.split(', ')
+                    words.each do |word|
+                        if word.include?('{')
+                            start = word.index('{')
+                            stringNumber = word[start + 1]
+                            number = stringNumber.to_i
+                            appendWord = word[0, 3]
+                            (0..number - 1).each do |_i|
+                                arr << appendWord
+                            end
+                            next
+
+                        end
+                        arr << word
+                    end
+
+
+
+                end
+                struct = arr
+            end
+
+        end
+        if language == "English"
+            sentence=[]
+            struct.each do |part|
+                pos.each do |engWord, part2|
+                    #next if sentence.include?(engWord)
+                    if part2==part
+                        sentence << engWord
+                        break
+
+                    end 
+
+
+                end 
+
+
+
+            end 
+
+            if sentence.size !=struct.size
+                return nil
+
+            else 
+                sentenceString=sentence.join(" ")
+                return sentenceString
+
+            end 
+
+
+
+        else 
+           sentence = []
+            if !struct || !hashTransAndPOS
+                return nil
+                
+            end 
+            struct.each do |i|
+                hashTransAndPOS.each do |_word, line|
+                    next unless line.include?(i) && line.include?(language)
+                    start = line.index(language)
+                    rest = line[start..-1]
+                    colon = rest.index(':')
+                    transWord = rest[colon + 1..-1].split(',')[0]
+                    #next if sentence.include?(transWord)
+
+                    sentence << transWord
+
+                    break
+                end
+            end
+            if sentence.size != struct.size
+                return nil
+
+            else
+                sentenceString=sentence.join(" ")
+                return sentenceString
+
+            end
+
+        end
+
+  
+    end
+  
+    def checkGrammar(sentence, language)
+        pos = @rules[0]
+        grammar = @rules[2]
+        trans = @rules[1]
+        struc = grammar[language]
+        if struc
+            arr = []
+            words = struc.split(', ')
+            words.each do |word|
+                if word.include?('{')
+                    start = word.index('{')
+                    stringNumber = word[start + 1]
+                    number = stringNumber.to_i
+                    appendWord = word[0, 3]
+                    (0..number - 1).each do |_i|
+                        arr << appendWord
+                    end
+                    next
+
+                end
+                arr << word
+            end
+      # puts arr.to_s
+      # finished english case, do other languages
+            if !sentence
+                return nil
+                
+            end 
+            sentenceWords = sentence.split
+            if language == 'English'
+                sentenceWords.each_with_index do |word, index|
+                    return false unless pos[word] == arr[index]
+                end
+
+                true
+
+            else
+
+              engWord = nil
+              sentenceWords.each_with_index do |langWord, index|
+                  engWord=nil
+                trans.each do |word, translations|
+                    next unless translations.include?(langWord)
+
+                    tarIndex = translations.index(langWord)
+                    colon = translations.rindex(':', tarIndex)
+                    wordLanguage = translations[0..colon].split(', ').last.split(':').first
+                    next unless wordLanguage == language
+
+                    engWord = word
+                    if language !="L1" && language != "L2" && language != "L3" && language != "L4"
+                        next
+                    end 
+                        
+                    break
+                end
+
+                return false unless pos[engWord] == arr[index]
+              end
+
+              true
+
+            end
+
+        end
+  
+    end
+  
+    def changeGrammar(sentence, struct1, struct2)
+        grammar = @rules[2]
+        part = @rules[0]
+        trans = @rules[1]
+
+        if struct1.class == String
+
+            struc1 = grammar[struct1]
+            arr1 = []
+            words1 = struc1.split(', ')
+            words1.each do |word|
+                if word.include?('{')
+
+                    start = word.index('{')
+                    stringNumber = word[start + 1]
+                    number = stringNumber.to_i
+                    appendWord = word[0, 3]
+                    (0..number - 1).each do |_i|
+                        arr1 << appendWord
+                    end
+                    next
+
+                end
+                arr1 << word
+            end
+            struct1 = arr1
+
+        end
+        if struct2.class == String
+            struc2 = grammar[struct2]
+            arr2 = []
+            words2 = struc2.split(', ')
+            words2.each do |word|
+                if word.include?('{')
+
+                    start = word.index('{')
+                    stringNumber = word[start + 1]
+                    number = stringNumber.to_i
+                    appendWord = word[0, 3]
+                    (0..number - 1).each do |_i|
+                        arr2 << appendWord
+                    end
+                    next
+                end
+                arr2 << word
+            end
+            struct2 = arr2
+
+        end
+        if !sentence
+            return nil
+            
+        end 
+        words = sentence.split(' ')
+        words_pos = words.map { |word| @posMap[word] = struct1.shift }
+        sorted_words = words.sort_by { |word| @posMap[word] }
+        result = []
+        struct2.each do |pos|
+            matching_word_index = sorted_words.find_index { |word| @posMap[word] == pos }
+            if !matching_word_index
+                return nil
+            end 
+            matching_word = sorted_words[matching_word_index]
+            result << matching_word
+            sorted_words.delete_at(matching_word_index)
+        end
+        result.join(' ')
+  
+    end
+
+    # part 3
+  
+    def changeLanguage(sentence, language1, language2)
+        trans = @rules[1]
+        sentenceParts = sentence.split
+        if language1 == language2
+            
+            sentence
+
+        elsif language1 == 'English'
+            transSentence = []
+            sentenceParts.each do |word|
+                translations = trans[word]
+                next if !translations
+                regex = translations.match(/#{language2}:([-\w]+)/)
+                if regex
+                    transWord = regex[1]
+                    transSentence << transWord
+
+                else
+                    return nil
+
+                end
+            end
+            transSentenceString = transSentence.join(' ')
+            transSentenceString
+
+        elsif language2 == 'English'
+            engSentence = []
+            sentenceParts.each do |word|
+                trans.each do |engWord, translations|
+                    next unless translations.include?(":#{word}")
+
+                    engSentence << engWord
+                    break
+                end
+            end
+            sentenceArr = sentence.split
+            return nil if engSentence.size != sentenceArr.size
+
+            engSentenceString = engSentence.join(' ')
+            engSentenceString
+
+        else
+            transSentence = []
+            sentenceParts.each do |word|
+                transWord = nil
+                trans.each do |engWord, translations|
+                    if translations.include?(":#{word}")
+                        regex = translations.match(/#{language2}:([-\w]+)/)
+                        if regex
+                            transWord = regex[1]
+                            break
+                        end
+                    end
+                end
+                if transWord
+                    transSentence << transWord
+                else
+                    return nil
+                end
+            end
+            transSentenceString = transSentence.join(' ')
+            transSentenceString
+
+        end
+  
+    end
+  
+    def translate(sentence, language1, language2)
+        shiftedSentence = changeGrammar(sentence, language1, language2)
+        if shiftedSentence
+            transSentence = changeLanguage(shiftedSentence, language1, language2)
+            return transSentence if transSentence
+
+        end
+        nil
+  
+    end
+  end  

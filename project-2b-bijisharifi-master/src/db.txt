@@ -1,0 +1,53 @@
+type person = { name: string;
+                age: int;
+                hobbies: string list }
+
+(* Define the type of db below *)
+type db  = person list
+
+let newDatabase : db = []
+
+let insert person db=[person] @ db
+
+let remove name db=
+List.filter(fun {name=n;_} -> n <> name) db
+
+type condition =
+  | True
+  | False
+  | Age of (int -> bool)
+  | Name of (string -> bool)
+  | Hobbies of (string list -> bool)
+  | And of condition * condition
+  | Or of condition * condition
+  | Not of condition
+  | If of condition * condition * condition
+  
+  
+ let rec conditions condition person= match condition with
+| True->true
+| False->false
+| Age a->a person.age
+| Name n->n person.name
+| Hobbies l->l person.hobbies
+| And(c1, c2)-> conditions c1 person && conditions c2 person
+| Or(c1, c2)-> conditions c1 person|| conditions c2 person
+| Not c->not (conditions c person)
+| If(c1, c2, c3)->if conditions c1 person then conditions c2 person else conditions c3 person
+
+let rec query condition db :person list = match db with
+| []->[]
+| p::t-> if conditions condition p then insert p (query condition t)  
+else query condition t 
+
+type comparator = person -> person -> int
+
+let sort comparator db = 
+List.fold_left (fun a x-> List.sort comparator (x :: a)) [] db
+
+let queryBy condition db comparator=
+let list=query condition db in let sortedList=sort comparator list in sortedList
+
+let update condition db personData = List.map(fun a-> if conditions condition a then personData a else a) db 
+
+let deleteAll condition db= List.fold_left (fun a x -> if conditions condition x then a else [x] @ a) [] db
