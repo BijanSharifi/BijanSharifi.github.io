@@ -1,0 +1,205 @@
+import json
+from typing import List
+
+# DO NOT MODIFY!
+class Node():
+    def  __init__(self,
+                  key       : int,
+                  word      : str,
+                  leftchild,
+                  rightchild):
+        self.key        = key
+        self.word      = word
+        self.leftchild  = leftchild
+        self.rightchild = rightchild
+
+# DO NOT MODIFY!
+def dump(root: Node) -> str:
+    def _to_dict(node) -> dict:
+        return {
+            "key": node.key,
+            "word": node.word,
+            "l": (_to_dict(node.leftchild) if node.leftchild is not None else None),
+            "r": (_to_dict(node.rightchild) if node.rightchild is not None else None)
+        }
+    if root == None:
+        dict_repr = {}
+    else:
+        dict_repr = _to_dict(root)
+    return json.dumps(dict_repr,indent = 2)
+
+# insert
+# For the tree rooted at root, insert the given key,word pair and then balance as per AVL trees.
+# The key is guaranteed to not be in the tree.
+# Return the root.
+def insert(root: Node, key: int, word: str) -> Node:
+    
+    if root is None:
+        return Node(key, word, None, None)
+    elif root.key < key:
+        root.rightchild = insert(root.rightchild, key, word)
+    else:
+        root.leftchild = insert(root.leftchild, key, word)
+
+    nodeBalance = balance(root)
+
+    if nodeBalance > 1:
+        if key < root.leftchild.key:
+            return rotateRight(root)
+        else:
+            root.leftchild = rotateLeft(root.leftchild)
+            return rotateRight(root)
+        
+    elif nodeBalance < -1:
+        if key > root.rightchild.key:
+            return rotateLeft(root)
+        else:
+            root.rightchild = rotateRight(root.rightchild)
+            return rotateLeft(root)
+        
+    else:
+        return root
+
+    
+
+def height(root: Node)-> int:
+    if root is None:
+        return -1
+    else:
+        return 1 + max(height(root.leftchild), height(root.rightchild))
+    
+
+def balance(root: Node)->int:
+    if root is None:
+        return 0
+    return height(root.leftchild) - height(root.rightchild)
+
+
+def rotateLeft(root: Node)->Node:
+    RightChild = root.rightchild
+    RightLeftSubtree = RightChild.leftchild
+    RightChild.leftchild = root
+    root.rightchild = RightLeftSubtree
+
+    return RightChild
+
+
+def rotateRight(root: Node)->Node:
+    LeftChild = root.leftchild
+    LeftRightSubtree = LeftChild.rightchild
+    LeftChild.rightchild = root
+    root.leftchild = LeftRightSubtree
+
+    return LeftChild
+
+
+   
+
+# bulkInsert
+# The parameter items should be a list of pairs of the form [key,word] where key is an integer and word is a string.
+# For the tree rooted at root, first insert all of the [key,word] pairs as if the tree were a standard BST, with no balancing.
+# Then do a preorder traversal of the [key,word] pairs and use this traversal to build a new tree using AVL insertion.
+# Return the root
+
+def bstInsert(root: Node, key: int, word : str)->Node:
+    if root is None:
+        return Node(key, word, None, None)
+    elif key < root.key:
+        root.leftchild = bstInsert(root.leftchild, key, word)
+    else:
+        root.rightchild = bstInsert(root.rightchild, key, word)
+    
+    return root
+
+
+def preorder(root: Node)->list:
+    if root is None:
+        return []
+     
+    loclist = []
+    loclist.append(root)
+    leftsubtree = preorder(root.leftchild)
+    loclist.extend(leftsubtree)
+    rightsubtree = preorder(root.rightchild)
+    loclist.extend(rightsubtree)
+
+    return loclist
+        
+
+
+def bulkInsert(root: Node, items: List) -> Node:
+    for key, word in items:
+
+        root = bstInsert(root, int(key), word)
+
+    preorderList = preorder(root)
+    tree = None
+
+    for node in preorderList:
+        tree = insert(tree, node.key, node.word)
+        
+
+   
+    return tree
+
+# bulkDelete
+# The parameter keys should be a list of keys.
+# For the tree rooted at root, first tag all the corresponding nodes (however you like),
+# Then do a preorder traversal of the [key,word] pairs, ignoring the tagged nodes,
+# and use this traversal to build a new tree using AVL insertion.
+# Return the root.
+
+
+
+def bulkDelete(root: Node, keys: List[int]) -> Node:
+
+    preorderlist = preorder(root)
+    tree = None
+    for node in preorderlist:
+        if node.key not in keys:
+            tree = insert(tree, node.key, node.word)
+    
+    return tree
+
+# search
+# For the tree rooted at root, calculate the list of keys on the path from the root to the search_key,
+# including the search key, and the word associated with the search_key.
+# Return the json stringified list [key1,key2,...,keylast,word] with indent=2.
+# If the search_key is not in the tree return a word of None.
+def search(root: Node, search_key: int) -> str:
+    
+    if root is None:
+        return json.dumps([], indent=2)
+    
+    loclist = []
+    loclist.append(root.key)
+    if root.key == search_key:
+        loclist.append(root.word)
+        return json.dumps(loclist, indent=2)
+    elif root.key < search_key:
+        
+        res = json.loads(search(root.rightchild, search_key))
+    else:
+        res = json.loads(search(root.leftchild, search_key))
+
+    if res:
+        loclist.extend(res)
+    
+    return json.dumps(loclist, indent=2)    
+
+# replace
+# For the tree rooted at root, replace the word corresponding to the key search_key by replacement_word.
+# The search_key is guaranteed to be in the tree.
+# Return the root
+def replace(root: Node, search_key: int, replacement_word:str) -> Node:
+    if search_key == root.key:
+        root.word = replacement_word
+        return root
+    elif search_key < root.key:
+        root.leftchild =  replace(root.leftchild, search_key, replacement_word)
+    else:
+        root.rightchild = replace(root.rightchild, search_key, replacement_word)
+
+    return root
+
+   
