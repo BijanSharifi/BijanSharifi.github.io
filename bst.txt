@@ -98,9 +98,6 @@ def delete(root: Node, key: int) -> Node:
 
 
 def search(root: Node, search_key: int) -> str:
-    # YOUR CODE GOES HERE.
-    # Then tweak the next line so it uses your list rather than None.
-    
     if root is None:
         return json.dumps([], indent=2)
     
