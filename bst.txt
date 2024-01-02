@@ -2,7 +2,7 @@ import json
 from typing import List
 from collections import deque
 
-# DO NOT MODIFY THIS CLASS!
+
 class Node():
     def __init__(self, key=None, keycount=None, leftchild=None, rightchild=None):
         self.key = key
@@ -10,10 +10,7 @@ class Node():
         self.leftchild = leftchild
         self.rightchild = rightchild
 
-# DO NOT MODIFY THIS FUNCTION!
-# For the tree rooted at root, dump the tree to a stringified JSON object and return.
-# NOTE: In future projects, you'll need to write the dump code yourself,
-# but here it's given to you.
+
 def dump(root: Node) -> str:
     def _to_dict(node) -> dict:
         return {
@@ -28,12 +25,8 @@ def dump(root: Node) -> str:
         dict_repr = _to_dict(root)
     return json.dumps(dict_repr, indent=2)
 
-# -----------------------------------------------------------
-# For the tree rooted at root and the key given:
-# If the key is not in the tree, insert it with a keycount of 1.
-# If the key is in the tree, increment its keycount.
+
 def insert(root: Node, key: int) -> Node:
-    # YOUR CODE GOES HERE.
     if root is None:
         return Node(key, 1)
     elif root.key == key:
@@ -71,10 +64,7 @@ def minNode(root: Node)-> Node:
 
 
     
-# For the tree rooted at root and the key given:
-# If the key is not in the tree, do nothing.
-# If the key is in the tree, decrement its key count. If the keycount goes to 0, remove the key.
-# When replacement is necessary, use the inorder successor.
+
 
 
 def delete(root: Node, key: int) -> Node:
@@ -105,10 +95,7 @@ def delete(root: Node, key: int) -> Node:
 
     
 
-# For the tree rooted at root and the key given:
-# Calculate the list of keys on the path from the root towards the search key.
-# The key is not guaranteed to be in the tree.
-# Return the json.dumps of the list with indent=2.
+
 
 def search(root: Node, search_key: int) -> str:
     # YOUR CODE GOES HERE.
@@ -139,8 +126,7 @@ def search(root: Node, search_key: int) -> str:
 
     
 
-# For the tree rooted at root, find the preorder traversal.
-# Return the json.dumps of the list with indent=2.
+
 def preorder(root: Node) -> str:
     
     if root is None:
@@ -157,8 +143,7 @@ def preorder(root: Node) -> str:
 
     return json.dumps(loclist, indent=2)
 
-# For the tree rooted at root, find the inorder traversal.
-# Return the json.dumps of the list with indent=2.
+
 def inorder(root: Node) -> str:
     
     if root is None:
@@ -174,8 +159,7 @@ def inorder(root: Node) -> str:
 
     return json.dumps(loclist, indent=2)
 
-# For the tree rooted at root, find the postorder traversal.
-# Return the json.dumps of the list with indent=2.
+
 def postorder(root: Node) -> str:
     
     if root is None:
@@ -190,8 +174,7 @@ def postorder(root: Node) -> str:
 
     return json.dumps(loclist, indent=2)
 
-# For the tree rooted at root, find the BFT traversal (go left-to-right).
-# Return the json.dumps of the list with indent=2.
+
 def bft(root: Node) -> str:
     
     if root is None:
